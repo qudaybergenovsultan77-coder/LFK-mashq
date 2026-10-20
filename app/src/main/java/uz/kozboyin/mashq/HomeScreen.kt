@@ -53,6 +53,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import kotlinx.coroutines.delay
 
+/** Daqiqani "45 daqiqa", "1 soat", "1 soat 30 daqiqa" ko'rinishida yozadi. */
+private fun fmtMin(m: Int): String = when {
+    m < 60 -> "$m daqiqa"
+    m % 60 == 0 -> "${m / 60} soat"
+    else -> "${m / 60} soat ${m % 60} daqiqa"
+}
+
 private fun bigTime(ms: Long, muted: Color): AnnotatedString = buildAnnotatedString {
     val m = (ms / 60_000L).toInt()
     val small = SpanStyle(fontSize = 20.sp, color = muted, fontWeight = FontWeight.SemiBold)
@@ -93,7 +100,7 @@ fun HomeScreen(onStart: () -> Unit) {
     val hasAccess = remember(tick) { ScreenTime.hasUsageAccess(ctx) }
     val notifOk = remember(tick) { Notifier.hasPermission(ctx) }
     val used = remember(tick) { if (hasAccess) ScreenTime.todayMs(ctx) else 0L }
-    val since = remember(tick, interval) { (used - Prefs.baseMs(ctx)).coerceAtLeast(0L) }
+    val since = remember(tick, interval) { Prefs.sinceMs(ctx, used) }
     val limitMs = interval * 60_000L
     val due = hasAccess && since >= limitMs
     val frac = (since.toFloat() / limitMs).coerceIn(0f, 1f)
@@ -128,7 +135,7 @@ fun HomeScreen(onStart: () -> Unit) {
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                "Oxirgi mashqdan beri: ${since / 60_000L} / $interval daqiqa",
+                "Oxirgi mashqdan beri: ${fmtMin((since / 60_000L).toInt())} / ${fmtMin(interval)}",
                 color = c.muted, fontSize = 13.sp
             )
         }
@@ -143,12 +150,12 @@ fun HomeScreen(onStart: () -> Unit) {
                 Text("Eslatma oralig'i", color = c.ink, fontSize = 16.sp)
                 Box {
                     TextButton(onClick = { menu = true }) {
-                        Text("$interval daqiqa", color = c.ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(fmtMin(interval), color = c.ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        listOf(20, 30, 45, 60).forEach { m ->
+                        listOf(30, 60, 120, 180, 240).forEach { m ->
                             DropdownMenuItem(
-                                text = { Text("$m daqiqa") },
+                                text = { Text(fmtMin(m)) },
                                 onClick = {
                                     interval = m
                                     Prefs.setIntervalMin(ctx, m)
